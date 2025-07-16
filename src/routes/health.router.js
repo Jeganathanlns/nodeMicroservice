@@ -1,18 +1,18 @@
 const express = require('express');
 const router = express.Router();
 const mongoose = require('mongoose');
-const db = require('../dbConfig/postgrsh.config');
+const dbs = require('../dbConfig/sql.config');
 
 router.get('/', async (req, res) => {
-  let pgStatus = false;
+  let mysqlStatus = false;
   let mongoStatus = false;
   let errors = [];
 
   try {
-    const pgCheck = await db.one('SELECT 1 as ok');
-    pgStatus = pgCheck.ok === 1;
+    const [rows] = await dbs.execute('SELECT 1 as ok');
+    mysqlStatus = rows[0].ok === 1;
   } catch (err) {
-    errors.push(`PostgreSQL: ${err.message}`);
+    errors.push(`MySQL: ${err.message}`);
   }
 
   try {
@@ -21,11 +21,11 @@ router.get('/', async (req, res) => {
     errors.push(`MongoDB: ${err.message}`);
   }
 
-  const overallStatus = pgStatus && mongoStatus ? 'ok' : 'degraded';
+  const overallStatus = mysqlStatus && mongoStatus ? 'ok' : 'degraded';
   
   res.json({
     status: overallStatus,
-    postgres: pgStatus,
+    mysql: mysqlStatus,
     mongodb: mongoStatus,
     errors: errors.length > 0 ? errors : undefined
   });
