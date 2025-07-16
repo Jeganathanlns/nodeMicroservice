@@ -1,7 +1,7 @@
 const express = require('express');
 const router = express.Router();
 const mongoose = require('mongoose');
-const dbs = require('../dbConfig/sql.config');
+const sequelize = require('../dbConfig/sequelize.config');
 
 router.get('/', async (req, res) => {
   let mysqlStatus = false;
@@ -9,8 +9,8 @@ router.get('/', async (req, res) => {
   let errors = [];
 
   try {
-    const [rows] = await dbs.execute('SELECT 1 as ok');
-    mysqlStatus = rows[0].ok === 1;
+    await sequelize.authenticate();
+    mysqlStatus = true;
   } catch (err) {
     errors.push(`MySQL: ${err.message}`);
   }
