@@ -43,25 +43,82 @@ class UserService {
     return isValid;
   }
 
-  async createUser(userData) {
-    const { firstname, lastname, email, password, otp, createdBy } = userData;
-    
+  async verifyOTP(email, otp) {
     const isOTPValid = await this.validateOTP(email, otp);
     if (!isOTPValid) {
       throw new Error('Invalid or expired OTP');
     }
-
-    const hashedPassword = await bcrypt.hash(password, 10);
     
+    // Get registration data from Redis
+    let registrationData;
+    if (isConnected()) {
+      const data = await redis.get(`registration:${email}`);
+      if (!data) {
+        throw new Error('Registration data not found or expired');
+      }
+      registrationData = JSON.parse(data);
+    } else {
+      const stored = memoryOTP.get(`registration:${email}`);
+      if (!stored || stored.expires <= Date.now()) {
+        throw new Error('Registration data not found or expired');
+      }
+      registrationData = JSON.parse(stored.value);
+    }
+    
+    // Create user in MySQL
     const user = await User.create({
-      firstname,
-      lastname,
-      email,
-      password: hashedPassword,
-      createdBy: createdBy || 'system'
+      firstname: registrationData.firstname,
+      lastname: registrationData.lastname,
+      email: registrationData.email,
+      password: registrationData.password, // Already hashed
+      createdBy: registrationData.createdBy || 'system'
     });
-
-    return { id: user.id, firstname, lastname, email, createdBy: user.createdBy, createdAt: user.createdAt };
+    
+    // Clean up Redis data
+    if (isConnected()) {
+      await redis.del(`registration:${email}`);
+    } else {
+      memoryOTP.delete(`registration:${email}`);
+    }
+    
+    return { 
+      verified: true,
+      user: {
+        id: user.id, 
+        firstname: user.firstname, 
+        lastname: user.lastname, 
+        email: user.email, 
+        createdBy: user.createdBy, 
+        createdAt: user.createdAt
+      }
+    };
+  }
+  
+  async registerUser(userData) {
+    const { email } = userData;
+    
+    // Hash password
+    const hashedPassword = await bcrypt.hash(userData.password, 10);
+    userData.password = hashedPassword;
+    
+    // Store registration data in Redis
+    const registrationData = JSON.stringify(userData);
+    if (isConnected()) {
+      await redis.setEx(`registration:${email}`, 3600, registrationData); // 1 hour expiry
+    } else {
+      memoryOTP.set(`registration:${email}`, { value: registrationData, expires: Date.now() + 3600000 });
+    }
+    
+    // Generate OTP for verification
+    const otp = await this.generateOTP(email);
+    
+    return { 
+      email, 
+      firstname: userData.firstname,
+      lastname: userData.lastname,
+      status: 'pending',
+      otp: otp // Include OTP in the response
+    };
   }
 
   async getAllUsers() {
@@ -89,6 +146,13 @@ class UserService {
 
   async deleteUser(id) {
     return await User.destroy({ where: { id } });
+  }
+  
+  async findByEmail(email) {
+    return await User.findOne({
+      where: { email },
+      attributes: ['id', 'firstname', 'lastname', 'email', 'password', 'createdBy', 'createdAt']
+    });
   }
 }
 

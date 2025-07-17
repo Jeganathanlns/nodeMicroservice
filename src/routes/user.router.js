@@ -4,7 +4,8 @@ const controller = require('../controllers/user.controller');
 const auth = require('../middlewares/auth.middleware');
 
 router.post('/generate-otp', controller.generateOTP);
-router.post('/register', controller.createUser);
+router.post('/verify-otp', controller.verifyOTP);
+router.post('/register', controller.registerUser);
 router.get('/', auth, controller.getUsers);
 router.get('/:id', auth, controller.getUser);
 router.put('/:id', auth, controller.updateUser);

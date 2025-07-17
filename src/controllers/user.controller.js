@@ -1,5 +1,6 @@
 const userService = require('../services/user.service');
 const { generateToken } = require('../utils/jwt.utils');
+const bcrypt = require('bcrypt');
 
 exports.generateOTP = async (req, res) => {
   try {
@@ -11,10 +12,24 @@ exports.generateOTP = async (req, res) => {
   }
 };
 
-exports.createUser = async (req, res) => {
+exports.verifyOTP = async (req, res) => {
   try {
-    const user = await userService.createUser(req.body);
-    res.status(201).json(user);
+    const { email, otp } = req.body;
+    const result = await userService.verifyOTP(email, otp);
+    res.status(201).json({ 
+      verified: true, 
+      message: 'OTP verified and registration completed successfully',
+      user: result.user
+    });
+  } catch (error) {
+    res.status(400).json({ verified: false, error: error.message });
+  }
+};
+
+exports.registerUser = async (req, res) => {
+  try {
+    const result = await userService.registerUser(req.body);
+    res.status(200).json({ message: 'Registration initiated', ...result });
   } catch (error) {
     res.status(400).json({ error: error.message });
   }
@@ -59,16 +74,16 @@ exports.deleteUser = async (req, res) => {
 
 exports.login = async (req, res) => {
   try {
-    const { username, password } = req.body;
+    const { email, password } = req.body;
     
-    // Find user by username
-    const user = await userService.findByUsername(username);
+    // Find user by email
+    const user = await userService.findByEmail(email);
     if (!user) {
       return res.status(401).json({ error: 'Invalid credentials' });
     }
     
-    // Validate password (assuming userService has a validatePassword method)
-    const isValid = await userService.validatePassword(user, password);
+    // Validate password
+    const isValid = await bcrypt.compare(password, user.password);
     if (!isValid) {
       return res.status(401).json({ error: 'Invalid credentials' });
     }
@@ -79,7 +94,15 @@ exports.login = async (req, res) => {
       email: user.email
     });
     
-    res.json({ token });
+    res.json({ 
+      token,
+      user: {
+        id: user.id,
+        email: user.email,
+        firstname: user.firstname,
+        lastname: user.lastname
+      }
+    });
   } catch (error) {
     res.status(500).json({ error: error.message });
   }

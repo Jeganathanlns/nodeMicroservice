@@ -85,6 +85,134 @@ paths:
         '500':
           $ref: '#/components/responses/InternalError'
 
+  /users/verify-otp:
+    post:
+      tags:
+        - Users
+      summary: Verify OTP
+      description: Verify the OTP sent to user's email
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - email
+                - otp
+              properties:
+                email:
+                  type: string
+                  format: email
+                  example: "user@example.com"
+                otp:
+                  type: integer
+                  minimum: 100000
+                  maximum: 999999
+                  example: 123456
+      responses:
+        '200':
+          description: OTP verified successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  verified:
+                    type: boolean
+                  message:
+                    type: string
+              example:
+                verified: true
+                message: "OTP verified successfully"
+        '400':
+          description: Invalid OTP
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  verified:
+                    type: boolean
+                  error:
+                    type: string
+              example:
+                verified: false
+                error: "Invalid or expired OTP"
+        '500':
+          $ref: '#/components/responses/InternalError'
+
+  /users/register-data:
+    post:
+      tags:
+        - Users
+      summary: Store registration data
+      description: Store user registration data in Redis after OTP verification
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - firstname
+                - lastname
+                - email
+                - password
+              properties:
+                firstname:
+                  type: string
+                  minLength: 2
+                  maxLength: 50
+                  example: "John"
+                lastname:
+                  type: string
+                  minLength: 2
+                  maxLength: 50
+                  example: "Doe"
+                email:
+                  type: string
+                  format: email
+                  example: "john.doe@example.com"
+                password:
+                  type: string
+                  minLength: 8
+                  example: "SecurePass123!"
+                createdBy:
+                  type: string
+                  example: "admin"
+      responses:
+        '200':
+          description: Registration data stored successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+                  email:
+                    type: string
+                  status:
+                    type: string
+              example:
+                message: "Registration data stored"
+                email: "john.doe@example.com"
+                status: "pending"
+        '400':
+          description: Email not verified
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  error:
+                    type: string
+              example:
+                error: "Email not verified. Please verify your email first."
+        '500':
+          $ref: '#/components/responses/InternalError'
+
   /users/register:
     post:
       tags:
@@ -323,7 +451,6 @@ components:
         - lastname
         - email
         - password
-        - otp
       properties:
         firstname:
           type: string
@@ -343,11 +470,7 @@ components:
           type: string
           minLength: 8
           example: "SecurePass123!"
-        otp:
-          type: integer
-          minimum: 100000
-          maximum: 999999
-          example: 123456
+
         createdBy:
           type: string
           example: "admin"
