@@ -57,8 +57,30 @@ exports.deleteUser = async (req, res) => {
   }
 };
 
-exports.login = (req, res) => {
-  const { username } = req.body;
-  const token = generateToken({ username });
-  res.json({ token });
+exports.login = async (req, res) => {
+  try {
+    const { username, password } = req.body;
+    
+    // Find user by username
+    const user = await userService.findByUsername(username);
+    if (!user) {
+      return res.status(401).json({ error: 'Invalid credentials' });
+    }
+    
+    // Validate password (assuming userService has a validatePassword method)
+    const isValid = await userService.validatePassword(user, password);
+    if (!isValid) {
+      return res.status(401).json({ error: 'Invalid credentials' });
+    }
+    
+    // Generate token with user id and email
+    const token = generateToken({
+      id: user.id,
+      email: user.email
+    });
+    
+    res.json({ token });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
 };
